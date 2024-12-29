@@ -1,0 +1,8 @@
+# Exclude SQLite database files
+backend/scraped_data.db
+
+# Exclude inaccessible sites database
+backend/inaccessible_sites.db
+
+# Exclude all .db files in the crawler directory
+backend/*.db

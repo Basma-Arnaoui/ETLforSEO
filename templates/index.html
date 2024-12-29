@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyword Usage Analyzer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h1 class="text-3xl font-bold mb-4 text-center text-gray-800">Keyword Usage Analyzer</h1>
+            <p class="text-center text-gray-600 mb-6">Analyze how keywords are used across web content</p>
+            
+            <!-- Database Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-blue-50 rounded-lg p-4 text-center">
+                    <p class="text-sm text-blue-600 mb-1">Total Domains Explored</p>
+                    <p class="text-2xl font-bold text-blue-800" id="totalDomains">-</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 text-center">
+                    <p class="text-sm text-green-600 mb-1">Total Links Scraped</p>
+                    <p class="text-2xl font-bold text-green-800" id="totalRecords">-</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 text-center">
+                    <p class="text-sm text-purple-600 mb-1">Avg. Content Length</p>
+                    <p class="text-2xl font-bold text-purple-800" id="avgLength">-</p>
+                </div>
+            </div>
+            
+            <!-- Search Input -->
+            <div class="max-w-xl mx-auto">
+                <div class="relative">
+                    <input type="text" id="keyword" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                           placeholder="Enter keyword to analyze...">
+                    <button id="analyzeBtn" 
+                            class="absolute right-2 top-1/2 transform -translate-y-1/2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition-colors">
+                        Analyze
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mt-2">Example keywords: cloud, analytics, solution, technology</p>
+            </div>
+        </div>
+<!-- Analysis Time Display -->
+<div id="analysisTimeContainer" class="hidden bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+    <p class="text-sm text-green-700" id="analysisTimeMessage"></p>
+</div>
+
+
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden">
+            <div class="flex flex-col items-center justify-center space-y-4">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                <p class="text-lg text-gray-700">Analyzing keyword patterns...</p>
+            </div>
+        </div>
+
+        <div id="statusMessage" class="text-center text-blue-600 mt-4"></div>
+
+        <!-- Error Display -->
+        <div id="error" class="hidden">
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-700" id="errorMessage"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Grid -->
+        <div id="results" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Domain Analysis -->
+                <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Top Domains</h3>
+                    <p class="text-sm text-gray-500">This plot shows the most frequent domains where the keyword appears.</p>
+                    <div id="domain_analysis" class="h-96"></div>
+                </div>
+                
+                <!-- Related Terms -->
+                <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Related Terms</h3>
+                    <p class="text-sm text-gray-500">Displays terms most commonly associated with the keyword using TF-IDF analysis.</p>
+                    <div id="related_terms" class="h-96"></div>
+                </div>
+                
+                <!-- Context Analysis -->
+                <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Nearby Words Analysis</h3>
+                    <p class="text-sm text-gray-500">Shows words frequently found near the keyword within a small context window.</p>
+
+                    <div id="context_analysis" class="h-96"></div>
+                </div>
+                
+                <!-- Word Patterns -->
+                <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Common Word Patterns</h3>
+                    <p class="text-sm text-gray-500">Visualizes common three-word sequences that include the keyword.</p>
+
+                    <div id="network_analysis" class="h-96" ></div>
+                </div>
+                
+                <!-- Keyword Position Analysis -->
+                <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-200 md:col-span-2">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Keyword Position in Content</h3>
+                    <p class="text-sm text-gray-500">Indicates whether the keyword appears at the top, middle, or bottom of the webpage.</p>
+
+                    <div id="location_analysis" class="h-96"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            console.log("Dashboard initialized");
+            
+            let analysisInProgress = false;
+            
+            // Load initial stats
+            $.get('/stats')
+                .done(function(stats) {
+                    $('#totalDomains').text(stats.total_domains.toLocaleString());
+                    $('#totalRecords').text(stats.total_records.toLocaleString());
+                    $('#avgLength').text(Math.round(stats.avg_text_length).toLocaleString());
+                })
+                .fail(function(xhr) {
+                    console.error('Failed to load stats:', xhr);
+                });
+    
+            function showError(message) {
+                $('#errorMessage').text(message);
+                $('#error').removeClass('hidden');
+                $('#loading').addClass('hidden');
+                $('#results').addClass('hidden');
+            }
+    
+            function renderCharts(data) {
+                console.log("Rendering charts");
+                $('#results').removeClass('hidden');
+                
+                const chartIds = [
+                    'domain_analysis',
+                    'related_terms',
+                    'context_analysis',
+                    'network_analysis',
+                    'location_analysis'
+                ];
+                
+                chartIds.forEach(id => {
+                    if (data[id]) {
+                        try {
+                            Plotly.newPlot(id, data[id].data, {
+                                ...data[id].layout,
+                                responsive: true,
+                                useResizeHandler: true,
+                                style: { width: '100%', height: '100%' }
+                            });
+                        } catch (e) {
+                            console.error(`Error rendering ${id}:`, e);
+                        }
+                    }
+                });
+            }
+    
+            function handleAnalysis() {
+                const keyword = $('#keyword').val().trim();
+                
+                if (!keyword) {
+                    showError('Please enter a keyword');
+                    return;
+                }
+            
+                // Reset and hide status or previous success messages
+                $('#statusMessage').removeClass('text-red-600').addClass('text-blue-600').text('Fetching data for keyword: ' + keyword);
+                $('#error').addClass('hidden');
+                $('#results').addClass('hidden');
+                $('#loading').removeClass('hidden');
+                $('#analyzeBtn').prop('disabled', true).addClass('opacity-50');
+                $('#analysisTimeContainer').addClass('hidden');  // Hide analysis time during fetch
+                
+                $.ajax({
+                    url: '/analyze',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ keyword: keyword }),
+                    success: function(response) {
+                        const message = `${response.message}<br>${response.analysis_message}`;
+                        showSuccess(message);  // Show success message with both fetch and analysis times
+                        renderCharts(response);
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON?.error || 'No data found.';
+                        showError(errorMsg);  // Show error
+                    },
+                    complete: function() {
+                        $('#loading').addClass('hidden');
+                        $('#analyzeBtn').prop('disabled', false).removeClass('opacity-50');
+                    }
+                });
+            }
+            
+            // Show Success Message (Fetch + Analysis Time)
+            function showSuccess(message) {
+                $('#analysisTimeMessage').html(message);  // Display fetch + analysis times
+                $('#analysisTimeContainer').removeClass('hidden');  // Show the container
+                $('#statusMessage').text('');  // Clear status text
+            }
+            
+           
+            
+            // Show the error box with a message
+            function showError(message) {
+                $('#errorMessage').text(message);  // Update error text
+                $('#error').removeClass('hidden');  // Show error container
+                $('#statusMessage').text('');  // Clear blue status since error occurred
+            }
+            
+            
+    
+            // Event Handlers
+            $('#analyzeBtn').click(handleAnalysis);
+            
+            $('#keyword').keypress(function(e) {
+                if (e.which == 13 && !analysisInProgress) {
+                    handleAnalysis();
+                }
+            });
+    
+            // Handle window resize for responsive charts
+            let resizeTimeout;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(function() {
+                    const chartIds = [
+                        'domain_analysis',
+                        'related_terms',
+                        'context_analysis',
+                        'network_analysis',
+                        'location_analysis'
+                    ];
+                    
+                    chartIds.forEach(id => {
+                        const chartDiv = document.getElementById(id);
+                        if (chartDiv && chartDiv.data) {
+                            Plotly.Plots.resize(chartDiv);
+                        }
+                    });
+                }, 250);
+            });
+        });
+        </script>
+    </body>
+    </html>
+     
